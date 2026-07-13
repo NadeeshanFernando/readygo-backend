@@ -1,6 +1,6 @@
 // server.js
 //
-// Two endpoints:
+// Tag authenticity:
 //   POST /api/tags/provision  — you call this once per physical tag, at
 //                                manufacturing/setup time. Protected by
 //                                ADMIN_API_KEY. Generates the signed QR
@@ -9,6 +9,10 @@
 //                                scans a tag to register it. Public, but
 //                                only returns a boolean — never leaks the
 //                                secret or lets you forge a signature.
+//
+// AI Suggestions / Learning AI:
+//   POST /api/ai/suggestions
+//   POST /api/ai/feedback
 
 require("dotenv").config();
 const express = require("express");

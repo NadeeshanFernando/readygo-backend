@@ -41,7 +41,7 @@ Respond with ONLY a JSON array, no other text, in this exact shape:
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
       max_tokens: 512,
       messages: [{ role: "user", content: prompt }]
     })
