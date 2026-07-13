@@ -1,5 +1,10 @@
 // server.js
 //
+// Health check:
+//   GET /health — public, no auth. For uptime monitors and Render's own
+//                 health checks. Reports whether required config is present
+//                 and whether the disk (JSON-file storage) is writable.
+//
 // Tag authenticity:
 //   POST /api/tags/provision  — you call this once per physical tag, at
 //                                manufacturing/setup time. Protected by
@@ -17,6 +22,8 @@
 require("dotenv").config();
 const express = require("express");
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const { sign, verify } = require("./tagSigning");
 const db = require("./db");
 const ai = require("./ai");
@@ -39,6 +46,40 @@ function requireAdminKey(req, res, next) {
   }
   next();
 }
+
+// --- Health check ---
+// Public, no auth, no dependencies on the tag/AI logic below — this should
+// keep working even if something else in the app is misconfigured, so it
+// can actually tell you *what's* wrong instead of just also failing.
+app.get("/health", (req, res) => {
+  const checks = {
+    tagSigningConfigured: Boolean(TAG_SIGNING_SECRET),
+    adminKeyConfigured: Boolean(ADMIN_API_KEY),
+    aiConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
+    diskWritable: false
+  };
+
+  // Quick round-trip write+delete to confirm the JSON-file storage this
+  // backend relies on (db.js/feedbackDb.js) can actually persist anything —
+  // some hosts silently mount read-only or ephemeral filesystems.
+  const probePath = path.join(__dirname, ".health-check-probe");
+  try {
+    fs.writeFileSync(probePath, String(Date.now()));
+    fs.unlinkSync(probePath);
+    checks.diskWritable = true;
+  } catch {
+    checks.diskWritable = false;
+  }
+
+  const healthy = checks.tagSigningConfigured && checks.adminKeyConfigured && checks.diskWritable;
+
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? "ok" : "degraded",
+    uptimeSeconds: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+    checks
+  });
+});
 
 function generateQrCode() {
   // Simple readable serial: RG- + 6 random hex chars. Swap for a sequential
